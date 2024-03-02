@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "minzdravtesttask"
+version = "0.1.0"
+description = ""
+authors = ["printeromg <PrinterOMG@ya.ru>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.110.0"
+sqlalchemy = {version = "^2.0.27", extras = ["asyncio"]}
+alembic = "^1.13.1"
+pydantic-settings = "^2.2.1"
+uvicorn = "^0.27.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
