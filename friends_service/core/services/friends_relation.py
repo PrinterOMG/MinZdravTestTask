@@ -9,7 +9,7 @@ class FriendRelationsService:
         return await self._friends_repository.get_by_id(friend_relation_id)
 
     async def get_user_friend_relations(self, user_id, offset, limit):
-        return await self._friends_repository.get_by_user_id(user_id)
+        return await self._friends_repository.get_by_user_id(user_id, offset=offset, limit=limit)
 
     async def create_friend_relation(self, friend_relation):
         return await self._friends_repository.add(friend_relation)
