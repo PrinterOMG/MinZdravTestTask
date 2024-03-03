@@ -10,9 +10,9 @@ from api.schemas.users import UserBase, UserRead
 from database.models.user import UserModel
 
 
-class BaseUsersRepository(GenericAsyncRepository[UserBase], ABC):
+class BaseUsersRepository(GenericAsyncRepository[UserEntity], ABC):
     @abstractmethod
-    async def get_by_username(self, username: str) -> UserRead | None:
+    async def get_by_username(self, username: str) -> UserEntity | None:
         raise NotImplementedError()
 
     @abstractmethod
