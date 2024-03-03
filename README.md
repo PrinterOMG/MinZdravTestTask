@@ -23,7 +23,7 @@
 
 ## Запуск
 Микросервисы обёрнуты в Docker контейнеры и запускаются через docker compose. 
-1. Нужно выполнить команду `docker compose up -d`
+1. Нужно выполнить команду `docker compose up`
 <br/><br/>
 2. После того как контейнеры запущены, нужно применить миграции\
 `docker exec fastapi_friends_service alembic upgrade head`\
