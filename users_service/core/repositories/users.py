@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.entities.user import UserEntity
 from core.repositories.base import GenericAsyncRepository, GenericAsyncSQLAlchemyRepository
-from api.schemas.users import UserBase, UserRead
 from database.models.user import UserModel
 
 
