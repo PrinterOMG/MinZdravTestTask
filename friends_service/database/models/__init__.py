@@ -1,0 +1,1 @@
+from .friend_relation import FriendRelationModel

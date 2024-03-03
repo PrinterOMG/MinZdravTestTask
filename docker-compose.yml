@@ -1,4 +1,4 @@
-version: '3'
+version: '3.7'
 
 services:
   users_service:
@@ -16,6 +16,9 @@ services:
       - users_postgres
     volumes:
       - ./users_service/:/app/
+    networks:
+      - users
+      - backend_network
 
   users_postgres:
     image: postgres:16-alpine
@@ -26,6 +29,52 @@ services:
       - POSTGRES_DB=some_db
     volumes:
       - postgres_users_data:/var/lib/postgresql/data/
+    networks:
+      - users
+
+  friends_service:
+    build: ./friends_service
+    ports:
+      - "8002:8000"
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=some_user
+      - POSTGRES_PASSWORD=secret_password
+      - POSTGRES_DB=some_db
+      - POSTGRES_HOST=friends_postgres
+      - POSTGRES_PORT=5432
+      - USERS_SERVICE_URL=http://users_service:8000
+    depends_on:
+      - friends_postgres
+      - users_service
+    volumes:
+      - ./friends_service/:/app/
+    networks:
+      - friends
+      - backend_network
+
+  friends_postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=some_user
+      - POSTGRES_PASSWORD=secret_password
+      - POSTGRES_DB=some_db
+    volumes:
+      - postgres_friends_data:/var/lib/postgresql/data/
+    networks:
+      - friends
 
 volumes:
   postgres_users_data:
+  postgres_friends_data:
+
+networks:
+  backend_network:
+    driver: bridge
+
+  friends:
+    driver: bridge
+
+  users:
+    driver: bridge
