@@ -1,16 +1,20 @@
 from abc import ABC, abstractmethod
-from typing import Generic, TypeVar, Type, Sequence
+from typing import Generic, TypeVar, Type
 from uuid import UUID
 
+from pydantic import BaseModel
 from sqlalchemy import select, and_, Select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.base import Base
 
-T = TypeVar('T')
+T = TypeVar('T', bound=BaseModel)
 
 
 class GenericAsyncRepository(Generic[T], ABC):
+    def __init__(self, entity: Type[T]):
+        self.entity = entity
+
     @abstractmethod
     async def get_by_id(self, id: UUID) -> T | None:
         """
@@ -66,11 +70,8 @@ class GenericAsyncRepository(Generic[T], ABC):
         raise NotImplementedError()
 
 
-SQLAlchemy_T = TypeVar('SQLAlchemy_T', bound=Base)
-
-
-class GenericAsyncSQLAlchemyRepository(GenericAsyncRepository[SQLAlchemy_T], ABC):
-    def __init__(self, session: AsyncSession, model_cls: Type[SQLAlchemy_T]) -> None:
+class GenericAsyncSQLAlchemyRepository(GenericAsyncRepository[T], ABC):
+    def __init__(self, session: AsyncSession, model_cls: Type[Base], entity: Type[T]) -> None:
         """
         Creates a new repository instance
 
@@ -79,6 +80,7 @@ class GenericAsyncSQLAlchemyRepository(GenericAsyncRepository[SQLAlchemy_T], ABC
         """
         self._session = session
         self._model_cls = model_cls
+        super().__init__(entity)
 
     def _construct_get_stmt(self, id: UUID) -> Select:
         """
@@ -88,12 +90,17 @@ class GenericAsyncSQLAlchemyRepository(GenericAsyncRepository[SQLAlchemy_T], ABC
         :return: SELECT statement
         """
         stmt = select(self._model_cls).where(self._model_cls.id == id)
+
         return stmt
 
-    async def get_by_id(self, id: UUID) -> SQLAlchemy_T | None:
+    async def get_by_id(self, id: UUID) -> T | None:
         stmt = self._construct_get_stmt(id)
-        record = await self._session.execute(stmt)
-        return record.scalar_one_or_none()
+        result = await self._session.scalar(stmt)
+
+        if result is None:
+            return None
+
+        return self.entity.model_validate(result)
 
     def _construct_list_stmt(self, offset, limit, **filters) -> Select:
         """
@@ -106,10 +113,10 @@ class GenericAsyncSQLAlchemyRepository(GenericAsyncRepository[SQLAlchemy_T], ABC
         """
         stmt = select(self._model_cls)
         where_clauses = []
-        for c, v in filters.items():
-            if not hasattr(self._model_cls, c):
-                raise ValueError(f'Invalid column name {c}')
-            where_clauses.append(getattr(self._model_cls, c) == v)
+        for column, value in filters.items():
+            if not hasattr(self._model_cls, column):
+                raise ValueError(f'Invalid column name {column}')
+            where_clauses.append(getattr(self._model_cls, column) == value)
 
         if len(where_clauses) == 1:
             stmt = stmt.where(where_clauses[0])
@@ -120,25 +127,36 @@ class GenericAsyncSQLAlchemyRepository(GenericAsyncRepository[SQLAlchemy_T], ABC
 
         return stmt
 
-    async def list(self, offset=0, limit=100, **filters) -> Sequence[SQLAlchemy_T]:
+    async def list(self, offset=0, limit=100, **filters) -> list[T]:
         stmt = self._construct_list_stmt(offset=offset, limit=limit, **filters)
-        records = await self._session.execute(stmt)
-        return records.scalars().all()
+        records = await self._session.scalars(stmt)
 
-    async def add(self, record: SQLAlchemy_T) -> SQLAlchemy_T:
+        return [self.entity.model_validate(record) for record in records.all()]
+
+    async def add(self, record: T) -> T:
+        record = self._model_cls(**record.model_dump())
+
         self._session.add(record)
         await self._session.flush()
         await self._session.refresh(record)
-        return record
+        await self._session.commit()
 
-    async def update(self, record: SQLAlchemy_T) -> SQLAlchemy_T:
+        return self.entity.model_validate(record)
+
+    async def update(self, record: T) -> T:
+        record = self._model_cls(**record.model_dump())
+
         self._session.add(record)
         await self._session.flush()
         await self._session.refresh(record)
-        return record
+        await self._session.commit()
+
+        return self.entity.model_validate(record)
 
     async def delete(self, id: UUID) -> None:
         record = await self.get_by_id(id)
+
         if record is not None:
             await self._session.delete(record)
             await self._session.flush()
+            await self._session.commit()
